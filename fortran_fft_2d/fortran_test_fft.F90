@@ -159,18 +159,6 @@ contains
      inembed = size(fxmany,1)
      onembed = size(uxmany,1)
 
-     write(*,*) irank, &
-          ndim, &
-          inembed, &
-          istride, &
-          idist, &
-          onembed, &
-          ostride, &
-          odist, &
-          HIPFFT_Z2D, &
-          nbatch
-        call flush(6)
-
 #ifdef _OPENACC
   
 #ifdef HIPGPU
