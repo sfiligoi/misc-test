@@ -22,3 +22,7 @@ ftn -hnoomp -hnoacc  -s real64 -Ofast -I${FFTW_INC}  -o fortran_test_fft fortran
 
 Frontier GPU (CRAY compiler):
 ftn -homp -hacc -DHIPGPU -I${HIPFORT_INC} -hacc_model=auto_async_none:no_fast_addr:no_deep_copy -s real64 -Ofast -o fortran_test_fft fortran_test_fft.F90  -L/opt/rocm-5.1.0/lib -L${HIPFORT_LIB} -lhipfort-amdgcn -lhipfft -lamdhip64
+
+
+Generic Intel FORTRAN + MKL:
+ifort -qopenmp -real-size 64 -Ofast -I${MKLROOT}/include/fftw/ -o fortran_test_fft fortran_test_fft.F90  -qmkl
