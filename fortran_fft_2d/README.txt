@@ -12,6 +12,11 @@ e.g.
 To compile:
 ----------
 
-Perlmutter:
+Perlmutter GPU (NVIDIA compiler):
 ftn -Mpreprocess -craype-verbose -Mdefaultunit -mp -Mstack_arrays  -acc -Minfo=accel -target-accel=nvidia80 -Mcudalib=cufft -r8  -fast -o fortran_test_fft fortran_test_fft.F90
+
+Perlmutter CPU (CRAY compiler):
+ftn -homp -hnoacc  -s real64 -Ofast -I${FFTW_INC}  -o fortran_test_fft fortran_test_fft.F90 -lfftw3_threads -lfftw3f_threads -lfftw3 -lfftw3f -llapack -lblas
+# single threaded
+ftn -hnoomp -hnoacc  -s real64 -Ofast -I${FFTW_INC}  -o fortran_test_fft fortran_test_fft.F90 -lfftw3 -lfftw3f -llapack -lblas
 

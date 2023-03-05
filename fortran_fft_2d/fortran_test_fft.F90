@@ -107,7 +107,9 @@ contains
   implicit none
 #ifndef _OPENACC
      include 'fftw3.f03'
+#ifdef _OPENACC
      integer, external :: omp_get_max_threads
+#endif
 #endif
   !-----------------------------------
    integer, intent(in) :: d1,d2,nbatch
@@ -137,8 +139,10 @@ contains
   integer :: idist,odist,istride,ostride,nsplit
 
 #ifndef _OPENACC
+#ifdef _OPENMP
      istatus = fftw_init_threads()
      call fftw_plan_with_nthreads(omp_get_max_threads())
+#endif
 #endif
 
      ndim(1) = d2
@@ -195,7 +199,7 @@ contains
           onembed, &
           ostride, &
           odist, &
-          FFTW_PATIENT)
+          FFTW_MEASURE)
      istatus = 0
 #endif
      if (istatus/=0) then
@@ -249,7 +253,7 @@ contains
      plan_r2c_many = fftw_plan_many_dft_r2c(&
           irank, &
           ndim, &
-          nbatcht, &
+          nbatch, &
           uvmany, &
           inembed, &
           istride, &
@@ -258,7 +262,7 @@ contains
           onembed, &
           ostride, &
           odist, &
-          FFTW_PATIENT)
+          FFTW_MEASURE)
      istatus = 0
 #endif
      if (istatus/=0) then
