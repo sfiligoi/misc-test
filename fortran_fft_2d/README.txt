@@ -20,3 +20,5 @@ ftn -homp -hnoacc  -s real64 -Ofast -I${FFTW_INC}  -o fortran_test_fft fortran_t
 # single threaded
 ftn -hnoomp -hnoacc  -s real64 -Ofast -I${FFTW_INC}  -o fortran_test_fft fortran_test_fft.F90 -lfftw3 -lfftw3f -llapack -lblas
 
+Frontier GPU (CRAY compiler):
+ftn -homp -hacc -DHIPGPU -I${HIPFORT_INC} -hacc_model=auto_async_none:no_fast_addr:no_deep_copy -s real64 -Ofast -o fortran_test_fft fortran_test_fft.F90  -L/opt/rocm-5.1.0/lib -L${HIPFORT_LIB} -lhipfort-amdgcn -lhipfft -lamdhip64

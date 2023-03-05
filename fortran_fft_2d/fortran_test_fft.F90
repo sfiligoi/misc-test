@@ -49,11 +49,16 @@ contains
   type(C_PTR) :: plan_c2r_many
   type(C_PTR) :: plan_r2c_many
 #endif
-  complex, dimension(0:d1/2,0:d2-1,nbatch) :: fxmany,fvmany
-  real, dimension(0:d1-1,0:d2-1,nbatch)  :: uxmany,uvmany
+  complex, dimension(:,:,:), allocatable :: fxmany,fvmany
+  real, dimension(:,:,:), allocatable :: uxmany,uvmany
   integer :: i,j,k
   integer :: start_count, end_count 
   integer :: count_rate, count_max
+
+  allocate( fxmany(0:d1/2,0:d2-1,nbatch) )
+  allocate( fvmany(0:d1/2,0:d2-1,nbatch) )
+  allocate( uxmany(0:d1-1,0:d2-1,nbatch) )
+  allocate( uvmany(0:d1-1,0:d2-1,nbatch) )
 
 
   fxmany = 0.0
@@ -153,6 +158,18 @@ contains
      ostride = 1
      inembed = size(fxmany,1)
      onembed = size(uxmany,1)
+
+     write(*,*) irank, &
+          ndim, &
+          inembed, &
+          istride, &
+          idist, &
+          onembed, &
+          ostride, &
+          odist, &
+          HIPFFT_Z2D, &
+          nbatch
+        call flush(6)
 
 #ifdef _OPENACC
   
