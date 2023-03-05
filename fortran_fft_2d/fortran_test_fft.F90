@@ -112,7 +112,7 @@ contains
   implicit none
 #ifndef _OPENACC
      include 'fftw3.f03'
-#ifdef _OPENACC
+#ifdef _OPENMP
      integer, external :: omp_get_max_threads
 #endif
 #endif
