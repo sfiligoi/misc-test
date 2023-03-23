@@ -1,5 +1,19 @@
 program fortran_test_fft
 
+#ifdef _OPENACC
+  
+#ifdef HIPGPU
+  ! HIP
+#define USEHIPFFT 1
+#else
+  ! CUDA
+#define USECUFFT 1
+#endif
+
+#else
+  ! FFTW
+#define USEFFTW 1
+#endif
 
   implicit none
 
@@ -32,23 +46,22 @@ contains
   !-----------------------------------
    integer, intent(in) :: d1,d2,nbatch
 
-#ifdef _OPENACC
-  
-#ifdef HIPGPU
+#ifdef USEHIPFFT
   ! HIP
   type(C_PTR) :: plan_c2r_many
   type(C_PTR) :: plan_r2c_many
-#else
+#endif
+#ifdef USECUFFT
   ! CUDA
   integer(c_int) :: plan_c2r_many
   integer(c_int) :: plan_r2c_many
 #endif
-
-#else
+#ifdef USEFFTW
   ! FFTW
   type(C_PTR) :: plan_c2r_many
   type(C_PTR) :: plan_r2c_many
 #endif
+
   complex, dimension(:,:,:), allocatable :: fxmany,fvmany
   real, dimension(:,:,:), allocatable :: uxmany,uvmany
   integer :: i,j,k
@@ -102,37 +115,38 @@ contains
 
   use, intrinsic :: iso_c_binding
   use, intrinsic :: iso_fortran_env
-#ifdef _OPENACC
-#ifdef HIPGPU
+#ifdef USEHIPFFT
   use hipfort_hipfft
-#else
+#endif
+#ifdef USECUFFT
   use cufft
 #endif
-#endif
+
   implicit none
-#ifndef _OPENACC
+#ifdef USEFFTW
      include 'fftw3.f03'
+#endif
 #ifdef _OPENMP
      integer, external :: omp_get_max_threads
 #endif
-#endif
+
   !-----------------------------------
    integer, intent(in) :: d1,d2,nbatch
-#ifdef _OPENACC
-  
-#ifdef HIPGPU
+
+#ifdef USEHIPFFT
   type(C_PTR), intent(inout) :: plan_c2r_many
   type(C_PTR), intent(inout) :: plan_r2c_many
-#else
+#endif
+#ifdef USECUFFT
   integer(c_int), intent(inout) :: plan_c2r_many
   integer(c_int), intent(inout) :: plan_r2c_many
 #endif
-
-#else
+#ifdef USEFFTW
   ! FFTW
   type(C_PTR), intent(inout) :: plan_c2r_many
   type(C_PTR), intent(inout) :: plan_r2c_many
 #endif
+
   complex, dimension(:,:,:), intent(inout) :: fxmany
   real, dimension(:,:,:), intent(inout) :: uvmany
   real, dimension(:,:,:), intent(inout) :: uxmany
@@ -143,7 +157,7 @@ contains
   integer, dimension(irank) :: ndim,inembed,onembed
   integer :: idist,odist,istride,ostride,nsplit
 
-#ifndef _OPENACC
+#ifdef USEFFTW
 #ifdef _OPENMP
      istatus = fftw_init_threads()
      call fftw_plan_with_nthreads(omp_get_max_threads())
@@ -159,9 +173,7 @@ contains
      inembed = size(fxmany,1)
      onembed = size(uxmany,1)
 
-#ifdef _OPENACC
-  
-#ifdef HIPGPU
+#ifdef USEHIPFFT
      plan_c2r_many = c_null_ptr
      istatus = hipfftPlanMany(&
           plan_c2r_many, &
@@ -175,7 +187,8 @@ contains
           odist, &
           HIPFFT_Z2D, &
           nbatch)
-#else
+#endif
+#ifdef USECUFFT
      istatus = cufftPlanMany(&
           plan_c2r_many, &
           irank, &
@@ -189,9 +202,7 @@ contains
           CUFFT_Z2D, &
           nbatch)
 #endif
-
-#else
-  ! FFTW
+#ifdef USEFFTW
      plan_c2r_many = fftw_plan_many_dft_c2r(&
           irank, &
           ndim, &
@@ -222,9 +233,7 @@ contains
      istride = 1
      ostride = 1
 
-#ifdef _OPENACC
-  
-#ifdef HIPGPU
+#ifdef USEHIPFFT
      plan_r2c_many = c_null_ptr
      istatus = hipfftPlanMany(&
           plan_r2c_many, &
@@ -238,7 +247,8 @@ contains
           odist, &
           HIPFFT_D2Z, &
           nbatch)
-#else
+#endif
+#ifdef USECUFFT
      istatus = cufftPlanMany(&
           plan_r2c_many, &
           irank, &
@@ -252,9 +262,7 @@ contains
           CUFFT_D2Z, &
           nbatch)
 #endif
-
-#else
-  ! FFTW
+#ifdef USEFFTW
      plan_r2c_many = fftw_plan_many_dft_r2c(&
           irank, &
           ndim, &
@@ -283,32 +291,26 @@ contains
   subroutine test_do_fft(plan_c2r_many,plan_r2c_many,fxmany,uvmany,uxmany,fvmany)
 
      use, intrinsic :: iso_c_binding
-#ifdef _OPENACC
-#ifdef HIPGPU
-     use hipfort_hipfft
-#else
-     use cufft
+#ifdef USEHIPFFT
+  use hipfort_hipfft
 #endif
+#ifdef USECUFFT
+  use cufft
 #endif
 
-     implicit none
-     !-----------------------------------
-#ifndef _OPENACC
+  implicit none
+#ifdef USEFFTW
      include 'fftw3.f03'
 #endif
-
-#ifdef _OPENACC
-  
-#ifdef HIPGPU
+#ifdef USEHIPFFT
      type(C_PTR), intent(inout) :: plan_c2r_many
      type(C_PTR), intent(inout) :: plan_r2c_many
-#else
+#endif
+#ifdef USECUFFT
      integer(c_int), intent(inout) :: plan_c2r_many
      integer(c_int), intent(inout) :: plan_r2c_many
 #endif
-
-#else
-     ! FFTW
+#ifdef USEFFTW
      type(C_PTR), intent(inout) :: plan_c2r_many
      type(C_PTR), intent(inout) :: plan_r2c_many
 #endif
@@ -325,16 +327,13 @@ contains
 !$acc  host_data &
 !$acc& use_device(fxmany,uxmany) 
 
-#ifdef _OPENACC
-  
-#ifdef HIPGPU
+#ifdef USEHIPFFT
      rc = hipfftExecZ2D(plan_c2r_many,c_loc(fxmany),c_loc(uxmany))
-#else
+#endif
+#ifdef USECUFFT
      rc = cufftExecZ2D(plan_c2r_many,fxmany,uxmany)
 #endif
-
-#else
-     ! FFTW
+#ifdef USEFFTW
      call fftw_execute_dft_c2r(plan_c2r_many,fxmany,uxmany) 
      rc = 0
 #endif
@@ -357,16 +356,13 @@ contains
      ! --------------------------------------
 
 !$acc host_data use_device(uvmany,fvmany)
-#ifdef _OPENACC
-  
-#ifdef HIPGPU
+#ifdef USEHIPFFT
      rc = hipfftExecD2Z(plan_r2c_many,c_loc(uvmany),c_loc(fvmany))
-#else
+#endif
+#ifdef USECUFFT
      rc = cufftExecD2Z(plan_r2c_many,uvmany,fvmany)
 #endif
-
-#else
-     ! FFTW
+#ifdef USEFFTW
      call fftw_execute_dft_r2c(plan_r2c_many,uvmany,fvmany) 
      rc = 0
 #endif
@@ -388,16 +384,13 @@ contains
      ! --------------------------------------
 
 !$acc host_data use_device(uxmany,fvmany)
-#ifdef _OPENACC
-  
-#ifdef HIPGPU
+#ifdef USEHIPFFT
      rc = hipfftExecD2Z(plan_r2c_many,c_loc(uxmany),c_loc(fvmany))
-#else
+#endif
+#ifdef USECUFFT
      rc = cufftExecD2Z(plan_r2c_many,uxmany,fvmany)
 #endif
-
-#else
-     ! FFTW
+#ifdef USEFFTW
      call fftw_execute_dft_r2c(plan_r2c_many,uxmany,fvmany) 
      rc = 0
 #endif
@@ -419,15 +412,13 @@ contains
      ! --------------------------------------
 !$acc  host_data use_device(fvmany,uxmany) 
 
-#ifdef _OPENACC
-  
-#ifdef HIPGPU
+#ifdef USEHIPFFT
      rc = hipfftExecZ2D(plan_c2r_many,c_loc(fvmany),c_loc(uxmany))
-#else
+#endif
+#ifdef USECUFFT
      rc = cufftExecZ2D(plan_c2r_many,fvmany,uxmany)
 #endif
-
-#else
+#ifdef USEFFTW
      ! FFTW
      call fftw_execute_dft_c2r(plan_c2r_many,fvmany,uxmany) 
      rc = 0
