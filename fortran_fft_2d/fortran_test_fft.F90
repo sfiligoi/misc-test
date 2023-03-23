@@ -78,10 +78,18 @@ contains
   fvmany = 0.0
   uxmany = 0.0
   uvmany = 0.0
+#ifdef USEOPENMPOFFLOAD
+!$omp target enter data map(to:fxmany,fvmany,uxmany,uvmany)
+#else
 !$acc enter data copyin( fxmany,fvmany,uxmany,uvmany)
+#endif
 
   ! semi-arbirtrary initialization to non-zero
-!$acc parallel loop collapse(2)
+#ifdef USEOPENMPOFFLOAD
+!$omp target teams loop collapse(2) private(i,j,k)
+#else
+!$acc parallel loop collapse(2) private(i,j,k)
+#endif
   do k=1,nbatch
    do j=0,d2-1
      do i=max(0,j-4),min(j+4,d1/2)
@@ -92,15 +100,30 @@ contains
      enddo
    enddo
   enddo
+#ifdef USEOPENMPOFFLOAD
+!$omp barrier
+#else
+!$acc wait
+#endif
 
   call test_setup_fft(d1,d2,nbatch,plan_c2r_many,plan_r2c_many,fxmany,uvmany,uxmany,fvmany)
 
   call test_do_fft(plan_c2r_many,plan_r2c_many, fxmany,uvmany,uxmany,fvmany)
 
+#ifdef USEOPENMPOFFLOAD
+!$omp barrier
+#else
+!$acc wait
+#endif
   do j=1,5
    call SYSTEM_CLOCK(start_count, count_rate, count_max)
    do i=1,100
     call test_do_fft(plan_c2r_many,plan_r2c_many,fxmany,uvmany,uxmany,fvmany)
+#ifdef USEOPENMPOFFLOAD
+!$omp barrier
+#else
+!$acc wait
+#endif
    enddo
    call SYSTEM_CLOCK(end_count, count_rate, count_max)
 
@@ -108,7 +131,11 @@ contains
    write(*,*) "4x100 FFT took ", (1.0*(end_count-start_count))/count_rate, " seconds"
   enddo
 
+#ifdef USEOPENMPOFFLOAD
+!$omp target exit data map(delete:fxmany,fvmany,uxmany,uvmany)
+#else
 !$acc exit data delete( fxmany,fvmany,uxmany,uvmany)
+#endif
   end subroutine test_fft
 
   subroutine test_setup_fft(d1,d2,nbatch,plan_c2r_many,plan_r2c_many,fxmany,uvmany,uxmany,fvmany)
@@ -218,6 +245,11 @@ contains
           FFTW_MEASURE)
      istatus = 0
 #endif
+#ifdef USEOPENMPOFFLOAD
+!$omp barrier
+#else
+!$acc wait
+#endif
      if (istatus/=0) then
         write(*,*) "ERROR: fftPlanMany Z2D failed! ", istatus
         call abort
@@ -278,6 +310,11 @@ contains
           FFTW_MEASURE)
      istatus = 0
 #endif
+#ifdef USEOPENMPOFFLOAD
+!$omp barrier
+#else
+!$acc wait
+#endif
      if (istatus/=0) then
         write(*,*) "ERROR: fftPlanMany D2Z failed! ", istatus
         call abort
@@ -324,8 +361,11 @@ contains
      ! --------------------------------------
      ! Forward
      ! --------------------------------------
-!$acc  host_data &
-!$acc& use_device(fxmany,uxmany) 
+#ifdef USEOPENMPOFFLOAD
+!$omp  target data use_device_ptr(fxmany,uxmany) 
+#else
+!$acc  host_data use_device(fxmany,uxmany) 
+#endif
 
 #ifdef USEHIPFFT
      rc = hipfftExecZ2D(plan_c2r_many,c_loc(fxmany),c_loc(uxmany))
@@ -337,8 +377,13 @@ contains
      call fftw_execute_dft_c2r(plan_c2r_many,fxmany,uxmany) 
      rc = 0
 #endif
+#ifdef USEOPENMPOFFLOAD
+!$omp barrier
+!$omp end target data
+#else
 !$acc wait
 !$acc end host_data
+#endif
 
      if (rc/=0) then
         write(*,*) "ERROR: fftExec D2Z failed! ", rc
@@ -355,7 +400,12 @@ contains
      ! Backward
      ! --------------------------------------
 
+#ifdef USEOPENMPOFFLOAD
+!$omp  target data use_device_ptr(uvmany,fvmany) 
+#else
 !$acc host_data use_device(uvmany,fvmany)
+#endif
+
 #ifdef USEHIPFFT
      rc = hipfftExecD2Z(plan_r2c_many,c_loc(uvmany),c_loc(fvmany))
 #endif
@@ -367,8 +417,14 @@ contains
      rc = 0
 #endif
 
+#ifdef USEOPENMPOFFLOAD
+!$omp barrier
+!$omp end target data
+#else
 !$acc wait
 !$acc end host_data
+#endif
+
      if (rc/=0) then
         write(*,*) "ERROR: fftExec Z2D failed! ", rc
         call abort
@@ -383,7 +439,12 @@ contains
      ! Backward2 - use different buffer
      ! --------------------------------------
 
+#ifdef USEOPENMPOFFLOAD
+!$omp  target data use_device_ptr(uxmany,fvmany) 
+#else
 !$acc host_data use_device(uxmany,fvmany)
+#endif
+
 #ifdef USEHIPFFT
      rc = hipfftExecD2Z(plan_r2c_many,c_loc(uxmany),c_loc(fvmany))
 #endif
@@ -395,8 +456,13 @@ contains
      rc = 0
 #endif
 
+#ifdef USEOPENMPOFFLOAD
+!$omp barrier
+!$omp end target data
+#else
 !$acc wait
 !$acc end host_data
+#endif
      if (rc/=0) then
         write(*,*) "ERROR: fftExec Z2D failed! ", rc
         call abort
@@ -410,7 +476,11 @@ contains
      ! --------------------------------------
      ! Forward2 - use different buffer
      ! --------------------------------------
+#ifdef USEOPENMPOFFLOAD
+!$omp  target data use_device_ptr(fvmany,uxmany) 
+#else
 !$acc  host_data use_device(fvmany,uxmany) 
+#endif
 
 #ifdef USEHIPFFT
      rc = hipfftExecZ2D(plan_c2r_many,c_loc(fvmany),c_loc(uxmany))
@@ -423,8 +493,14 @@ contains
      call fftw_execute_dft_c2r(plan_c2r_many,fvmany,uxmany) 
      rc = 0
 #endif
+
+#ifdef USEOPENMPOFFLOAD
+!$omp barrier
+!$omp end target data
+#else
 !$acc wait
 !$acc end host_data
+#endif
 
      if (rc/=0) then
         write(*,*) "ERROR: fftExec D2Z failed! ", rc
