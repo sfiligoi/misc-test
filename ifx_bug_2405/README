@@ -2,3 +2,7 @@ Simple test to trigger bad code creation by ifx
 
 Tested with version
 ifx (IFX) 2024.0.0 20231017
+
+Update:
+No problem detected with
+ifx (IFX) 2024.1.0 20240308
