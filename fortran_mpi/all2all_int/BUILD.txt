@@ -1,0 +1,19 @@
+Example build and run instructions
+==================================
+
+Cray compiler for GPU
+---------------------
+Build:
+ftn -homp -hacc_model=auto_async_none:no_fast_addr:no_deep_copy -Ofast -o mpi_omp_gpu_benchmark mpi_omp_gpu_benchmark.F90
+#ftn -homp -hacc_model=auto_async_none:no_fast_addr:no_deep_copy -Ofast -DUSE_LEGACY_MPI -o mpi_omp_gpu_benchmark mpi_omp_gpu_benchmark.F90
+Run:
+srun -n4 ./mpi_omp_gpu_benchmark 10000000 256
+
+Cray compiler for CPU
+---------------------
+Build:
+ftn -homp -Ofast -DNO_GPU -o mpi_omp_gpu_benchmark mpi_omp_gpu_benchmark.F90
+#ftn -homp -Ofast -DUSE_LEGACY_MPI -DNO_GPU -o mpi_omp_gpu_benchmark mpi_omp_gpu_benchmark.F90
+Run:
+srun -n4 ./mpi_omp_gpu_benchmark 10000000 256
+
