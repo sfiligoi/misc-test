@@ -16,6 +16,7 @@ program mpi_omp_gpu_benchmark
     integer :: count, num_iters
     integer, parameter :: warmup_iters = 5
     integer :: total_elements
+    integer :: recvmax
     character(len=32) :: arg_str
     
     ! Timers
@@ -50,6 +51,7 @@ program mpi_omp_gpu_benchmark
 #endif
     do i = 1, total_elements
         device_sendbuf(i) = rank
+        device_recvbuf(i) = 0
     end do
 
     ! Initialize timers
@@ -87,6 +89,20 @@ program mpi_omp_gpu_benchmark
         call check_mpi_error(ierr, "Warmup Alltoall")
     end do
     t_warm_total = MPI_Wtime() - t_warm_total
+
+    ! Basic check that recvbuffer is being updated in GPU memory
+    recvmax = -1
+#ifndef NO_GPU
+    !$omp target teams distribute parallel do reduction(max:recvmax) map(tofrom:recvmax)
+#endif
+    do i = 1, total_elements
+        if (recvmax< device_recvbuf(i)) recvmax=device_recvbuf(i)
+    end do
+
+    if (recvmax<1) then
+        print '(A, I0, A, I0)', "Recv error in warmup, >0 expected, found ", recvmax, " rank= ", rank
+        call MPI_Abort(MPI_COMM_WORLD, 1, ierr)
+    endif
 
     ! --- 3. TIMED MAIN PHASE ---
     if (rank == 0) print '(A, I0, A)', ">>> Starting Main Loop (", num_iters, " iters)"
