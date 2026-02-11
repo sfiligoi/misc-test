@@ -33,7 +33,7 @@ program mpi_omp_gpu_benchmark
     ! 1. CLI Arguments
     arg_count = command_argument_count()
     if (arg_count < 2) then
-        if (rank == 0) print *, "Usage: mpirun ./mpi_omp_gpu_benchmark <count_per_rank> <main_iterations>"
+        if (rank == (nranks-1)) print *, "Usage: mpirun ./mpi_omp_gpu_benchmark <count_per_rank> <main_iterations>"
         call MPI_Abort(MPI_COMM_WORLD, 1, ierr)
     end if
     call get_command_argument(1, arg_str); read(arg_str, *) count
@@ -59,7 +59,7 @@ program mpi_omp_gpu_benchmark
 
     ! --- 2. TIMED WARMUP PHASE ---
     ! Similar to main below, but just to cleanly separate startup and steady state performance
-    if (rank == 0) print '(A, I0, A)', ">>> Starting Warmup (", warmup_iters, " iters)"
+    if (rank == (nranks-1)) print '(A, I0, A)', ">>> Starting Warmup (", warmup_iters, " iters)"
     call MPI_Barrier(MPI_COMM_WORLD, ierr)
     call check_mpi_error(ierr, "Warmup Barrier")
     t_warm_total = MPI_Wtime()
@@ -105,7 +105,7 @@ program mpi_omp_gpu_benchmark
     endif
 
     ! --- 3. TIMED MAIN PHASE ---
-    if (rank == 0) print '(A, I0, A)', ">>> Starting Main Loop (", num_iters, " iters)"
+    if (rank == (nranks-1)) print '(A, I0, A)', ">>> Starting Main Loop (", num_iters, " iters)"
     call MPI_Barrier(MPI_COMM_WORLD, ierr)
     call check_mpi_error(ierr, "Main Barrier")
     t_main_total = MPI_Wtime()
@@ -120,9 +120,9 @@ program mpi_omp_gpu_benchmark
 #endif
         do i = 1, total_elements
           if (i>1) then
-            device_sendbuf(i) = (device_recvbuf(i-1)+2*device_recvbuf(i))/3;
+            device_sendbuf(i) = modulo(device_sendbuf(i) + (device_recvbuf(i-1)+2*device_recvbuf(i))/3, 1234567);
           else
-            device_sendbuf(i) = (device_recvbuf(total_elements)+2*device_recvbuf(i))/3;
+            device_sendbuf(i) = modulo(device_sendbuf(i) + (device_recvbuf(total_elements)+2*device_recvbuf(i))/3, 1234567);
           endif
         end do
         t1 = MPI_Wtime(); t_main_comp = t_main_comp + (t1 - t0)
@@ -142,7 +142,7 @@ program mpi_omp_gpu_benchmark
     t_main_total = MPI_Wtime() - t_main_total
 
     ! --- 4. REPORTING ---
-    if (rank == 0) then
+    if (rank == (nranks-1)) then
         print '(/, A)', "---------------- PERFORMANCE SUMMARY ----------------"
         print '(A, I0, A, I0)', " Ranks: ", nranks, " | Count: ", count
         print '(A, F12.6, A)',  " Warmup Total: ", t_warm_total, " s"
@@ -158,6 +158,15 @@ program mpi_omp_gpu_benchmark
             (real(total_elements,8) * 4.0d0) / (t_main_mpi/num_iters * 1024.0d0**3), " GB/s"
         print '(A)', "-----------------------------------------------------"
     end if
+
+    ! Final check to ensure MPI worked
+#ifndef NO_GPU
+    !$omp target update from(device_sendbuf(1:3))
+    !$omp target update from(device_recvbuf(1:3))
+#endif
+    ! Value will be proporitonal to both count and n_rank
+    if (rank == (nranks-1)) print *, "Sample Send Buffer elements (Index 1-3): ", device_sendbuf(1:3)
+    if (rank == (nranks-1)) print *, "Sample Revc Buffer elements (Index 1-3): ", device_recvbuf(1:3)
 
 #ifndef NO_GPU
     !$omp target exit data map(release: device_sendbuf, device_recvbuf)
