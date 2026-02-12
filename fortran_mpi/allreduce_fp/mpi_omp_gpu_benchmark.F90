@@ -97,7 +97,7 @@ program mpi_omp_gpu_allreduce
     end do
 
     if (recvmax<1) then
-        print '(A, I0, A, I0)', "Recv error in warmup, >0 expected, found ", recvmax, " rank= ", rank
+        print '(A, F20.15, A, I0)', "Recv error in warmup, >0 expected, found ", recvmax, " rank= ", rank
         call MPI_Abort(MPI_COMM_WORLD, 1, ierr)
     endif
 
